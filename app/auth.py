@@ -1,7 +1,7 @@
 import hashlib
 import secrets
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -38,7 +38,7 @@ def authenticate(session: Session, email: str, password: str) -> "User | None":
 
 def create_session(session: Session, user_id: uuid.UUID) -> str:
     token = secrets.token_urlsafe(48)
-    expires = datetime.now(timezone.utc) + timedelta(days=7)
+    expires = datetime.utcnow() + timedelta(days=7)
     user_session = UserSession(user_id=user_id, token=token, expires_at=expires)
     session.add(user_session)
     session.commit()
@@ -52,7 +52,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(
     session = SyncSession()
     try:
         user_session = session.query(UserSession).filter_by(token=credentials.credentials).first()
-        if not user_session or user_session.expires_at < datetime.now(timezone.utc):
+        if not user_session or user_session.expires_at < datetime.utcnow():
             raise HTTPException(401, "Invalid or expired token")
         user = session.get(User, user_session.user_id)
         if not user or not user.is_active:

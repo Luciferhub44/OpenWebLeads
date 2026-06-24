@@ -1,6 +1,6 @@
 import uuid
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime
 
 from celery import Celery
 
@@ -27,7 +27,7 @@ def enrich_company(job_id: str, domain: str, provider: str = ""):
         job = session.get(Job, uuid.UUID(job_id))
         job.status = "processing"
         job.llm_provider = provider
-        job.started_at = datetime.now(timezone.utc)
+        job.started_at = datetime.utcnow()
         session.commit()
 
         api_key, model = get_key(session, provider)
@@ -92,7 +92,7 @@ def enrich_company(job_id: str, domain: str, provider: str = ""):
         job.tokens_in = total_in
         job.tokens_out = total_out
         job.status = "completed"
-        job.completed_at = datetime.now(timezone.utc)
+        job.completed_at = datetime.utcnow()
         session.commit()
 
         dispatch_webhook({
@@ -113,7 +113,7 @@ def enrich_company(job_id: str, domain: str, provider: str = ""):
             job.tokens_in = total_in
             job.tokens_out = total_out
             job.error_message = traceback.format_exc()[-1000:]
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.utcnow()
             session.commit()
 
         dispatch_webhook({"event": "enrichment.failed", "job_id": job_id, "domain": domain, "error": traceback.format_exc()[-500:]})

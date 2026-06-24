@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import ForeignKey, LargeBinary, Text, func
 from sqlalchemy.dialects.postgresql import ARRAY, JSON, UUID
@@ -9,7 +9,7 @@ from app.db import Base
 
 
 def _utcnow():
-    return datetime.now(timezone.utc)
+    return datetime.utcnow()
 
 
 class User(Base):
