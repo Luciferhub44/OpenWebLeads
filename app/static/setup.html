@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenEnrich OS — Setup</title>
+<style>
+  :root { --bg: #0a0a0a; --card: #111; --border: #222; --text: #e5e5e5; --muted: #666; --accent: #10b981; --accent2: #059669; --red: #ef4444; --yellow: #eab308; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+  .wizard { max-width: 540px; width: 100%; }
+  .logo { text-align: center; margin-bottom: 2rem; }
+  .logo h1 { color: var(--accent); font-size: 1.5rem; }
+  .logo p { color: var(--muted); font-size: 0.875rem; margin-top: 0.25rem; }
+  .step { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; display: none; }
+  .step.active { display: block; }
+  .step h2 { font-size: 1rem; margin-bottom: 0.25rem; }
+  .step .desc { color: var(--muted); font-size: 0.8rem; margin-bottom: 1rem; }
+  .step-indicator { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1.5rem; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+  .dot.active { background: var(--accent); }
+  .dot.done { background: var(--accent2); }
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.25rem; margin-top: 0.75rem; }
+  input, select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.75rem; color: var(--text); font-size: 0.875rem; outline: none; }
+  input:focus, select:focus { border-color: var(--accent); }
+  .provider-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 0.75rem 0; }
+  .provider-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem; text-align: center; cursor: pointer; font-size: 0.8rem; transition: all 0.15s; }
+  .provider-btn:hover { border-color: var(--accent); }
+  .provider-btn.selected { border-color: var(--accent); background: rgba(16,185,129,0.1); }
+  .provider-btn .name { font-weight: 600; }
+  .provider-btn .model { color: var(--muted); font-size: 0.7rem; }
+  .actions { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+  .btn { flex: 1; padding: 0.6rem; border-radius: 8px; border: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-secondary:hover { background: #333; }
+  .status { padding: 0.5rem 0.75rem; border-radius: 8px; font-size: 0.8rem; margin-top: 0.75rem; }
+  .status.ok { background: rgba(16,185,129,0.1); color: var(--accent); border: 1px solid rgba(16,185,129,0.2); }
+  .status.warn { background: rgba(234,179,8,0.1); color: var(--yellow); border: 1px solid rgba(234,179,8,0.2); }
+  .status.err { background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+  .check { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; font-size: 0.85rem; }
+  .check .icon { width: 18px; text-align: center; }
+  .result-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-top: 0.75rem; font-family: monospace; font-size: 0.8rem; line-height: 1.6; }
+  .skip-link { color: var(--muted); font-size: 0.75rem; text-align: center; display: block; margin-top: 0.5rem; cursor: pointer; }
+  .skip-link:hover { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wizard">
+  <div class="logo">
+    <h1>OpenEnrich OS</h1>
+    <p>Setup Wizard</p>
+  </div>
+
+  <div class="step-indicator" id="dots"></div>
+
+  <!-- Step 1: Health Check -->
+  <div class="step active" id="step-1">
+    <h2>System Check</h2>
+    <p class="desc">Checking your OpenEnrich installation...</p>
+    <div id="checks"></div>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="nextStep()">Continue</button>
+    </div>
+  </div>
+
+  <!-- Step 2: LLM Provider -->
+  <div class="step" id="step-2">
+    <h2>Choose LLM Provider</h2>
+    <p class="desc">Select which AI provider to use for lead enrichment.</p>
+    <div class="provider-grid" id="provider-grid"></div>
+    <label>API Key</label>
+    <input type="password" id="llm-key" placeholder="sk-... or API key">
+    <span class="skip-link" onclick="nextStep()">Skip — configure later</span>
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="prevStep()">Back</button>
+      <button class="btn btn-primary" onclick="saveLLMKey()">Save & Continue</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Vault Key -->
+  <div class="step" id="step-3">
+    <h2>Additional API Keys (Optional)</h2>
+    <p class="desc">Store keys for other providers in the encrypted BYOK vault.</p>
+    <label>Provider</label>
+    <select id="vault-provider"></select>
+    <label>API Key</label>
+    <input type="password" id="vault-key" placeholder="API key">
+    <label>Label</label>
+    <input type="text" id="vault-label" placeholder="e.g. production key">
+    <div id="vault-status"></div>
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="prevStep()">Back</button>
+      <button class="btn btn-primary" onclick="saveVaultKey()">Store Key</button>
+    </div>
+    <span class="skip-link" onclick="nextStep()">Skip — done adding keys</span>
+  </div>
+
+  <!-- Step 4: Test -->
+  <div class="step" id="step-4">
+    <h2>Test Enrichment</h2>
+    <p class="desc">Try enriching a domain to verify everything works.</p>
+    <label>Domain</label>
+    <input type="text" id="test-domain" placeholder="e.g. stripe.com" value="stripe.com">
+    <div id="test-status"></div>
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="prevStep()">Back</button>
+      <button class="btn btn-primary" onclick="testEnrich()">Run Test</button>
+    </div>
+    <span class="skip-link" onclick="nextStep()">Skip test</span>
+  </div>
+
+  <!-- Step 5: Done -->
+  <div class="step" id="step-5">
+    <h2>Setup Complete!</h2>
+    <p class="desc">OpenEnrich OS is ready to use.</p>
+    <div class="result-box">
+      <div>API: <a href="/docs" style="color:var(--accent)">/docs</a></div>
+      <div>Health: <a href="/api/v1/health" style="color:var(--accent)">/api/v1/health</a></div>
+      <div>Dashboard: <a href="/" style="color:var(--accent)">localhost:3000</a></div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="window.location.href='/docs'">Open API Docs</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+const PROVIDERS = [
+  { id: 'openai', name: 'OpenAI', model: 'gpt-4o-mini' },
+  { id: 'anthropic', name: 'Anthropic', model: 'claude-sonnet-4' },
+  { id: 'gemini', name: 'Gemini', model: 'gemini-2.0-flash' },
+  { id: 'grok', name: 'Grok', model: 'grok-3-mini' },
+  { id: 'mistral', name: 'Mistral', model: 'mistral-small' },
+  { id: 'groq', name: 'Groq', model: 'llama-3.1-70b' },
+  { id: 'deepseek', name: 'DeepSeek', model: 'deepseek-chat' },
+];
+let currentStep = 1;
+let totalSteps = 5;
+let selectedProvider = 'openai';
+
+function initDots() {
+  const dots = document.getElementById('dots');
+  for (let i = 1; i <= totalSteps; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 1 ? ' active' : '');
+    d.id = 'dot-' + i;
+    dots.appendChild(d);
+  }
+}
+
+function updateDots() {
+  for (let i = 1; i <= totalSteps; i++) {
+    const d = document.getElementById('dot-' + i);
+    d.className = 'dot' + (i === currentStep ? ' active' : i < currentStep ? ' done' : '');
+  }
+}
+
+function showStep(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+  currentStep = n;
+  updateDots();
+}
+
+function nextStep() { if (currentStep < totalSteps) showStep(currentStep + 1); }
+function prevStep() { if (currentStep > 1) showStep(currentStep - 1); }
+
+function initProviders() {
+  const grid = document.getElementById('provider-grid');
+  const select = document.getElementById('vault-provider');
+  PROVIDERS.forEach(p => {
+    const btn = document.createElement('div');
+    btn.className = 'provider-btn' + (p.id === 'openai' ? ' selected' : '');
+    btn.innerHTML = `<div class="name">${p.name}</div><div class="model">${p.model}</div>`;
+    btn.onclick = () => {
+      document.querySelectorAll('.provider-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedProvider = p.id;
+    };
+    grid.appendChild(btn);
+
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    select.appendChild(opt);
+  });
+}
+
+async function checkHealth() {
+  const el = document.getElementById('checks');
+  const checks = [
+    { label: 'API Server', test: async () => { const r = await fetch(API + '/api/v1/health'); return r.ok; } },
+    { label: 'LLM Configured', test: async () => { const r = await fetch(API + '/api/v1/health'); const d = await r.json(); return d.llm_configured; } },
+    { label: 'Vault Encrypted', test: async () => { const r = await fetch(API + '/api/v1/health'); const d = await r.json(); return d.vault_encrypted; } },
+  ];
+
+  for (const c of checks) {
+    const div = document.createElement('div');
+    div.className = 'check';
+    div.innerHTML = `<span class="icon">⏳</span> ${c.label}`;
+    el.appendChild(div);
+    try {
+      const ok = await c.test();
+      div.innerHTML = `<span class="icon">${ok ? '✅' : '⚠️'}</span> ${c.label}${ok ? '' : ' — not configured yet'}`;
+    } catch {
+      div.innerHTML = `<span class="icon">❌</span> ${c.label} — unreachable`;
+    }
+  }
+}
+
+async function saveLLMKey() {
+  const key = document.getElementById('llm-key').value.trim();
+  if (!key) { nextStep(); return; }
+  try {
+    const res = await fetch(API + '/api/v1/vault/keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: selectedProvider, api_key: key, label: 'setup-wizard' }),
+    });
+    if (res.ok) nextStep();
+    else alert('Failed to store key: ' + (await res.text()));
+  } catch (e) { alert('Error: ' + e.message); }
+}
+
+async function saveVaultKey() {
+  const provider = document.getElementById('vault-provider').value;
+  const key = document.getElementById('vault-key').value.trim();
+  const label = document.getElementById('vault-label').value.trim();
+  if (!key) return;
+  const el = document.getElementById('vault-status');
+  try {
+    const res = await fetch(API + '/api/v1/vault/keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, api_key: key, label }),
+    });
+    if (res.ok) {
+      el.innerHTML = '<div class="status ok">✓ Key stored for ' + provider + '</div>';
+      document.getElementById('vault-key').value = '';
+      document.getElementById('vault-label').value = '';
+    } else {
+      el.innerHTML = '<div class="status err">Failed: ' + (await res.text()) + '</div>';
+    }
+  } catch (e) { el.innerHTML = '<div class="status err">Error: ' + e.message + '</div>'; }
+}
+
+async function testEnrich() {
+  const domain = document.getElementById('test-domain').value.trim();
+  if (!domain) return;
+  const el = document.getElementById('test-status');
+  el.innerHTML = '<div class="status warn">⏳ Submitting enrichment job...</div>';
+  try {
+    const res = await fetch(API + '/api/v1/enrich', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain, provider: selectedProvider }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      el.innerHTML = `<div class="status ok">✓ Job created: ${data.job_id}<br>Status: ${data.status}</div>`;
+    } else {
+      el.innerHTML = `<div class="status err">Error: ${JSON.stringify(data)}</div>`;
+    }
+  } catch (e) { el.innerHTML = `<div class="status err">Error: ${e.message}</div>`; }
+}
+
+initDots();
+initProviders();
+checkHealth();
+</script>
+</body>
+</html>

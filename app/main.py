@@ -1,8 +1,11 @@
 import uuid
 
+import pathlib
+
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +24,14 @@ from app.schemas import (
 )
 
 app = FastAPI(title="OpenEnrich OS", version="1.0.0")
+
+_static = pathlib.Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=str(_static)), name="static")
+
+
+@app.get("/setup")
+async def setup_wizard():
+    return FileResponse(str(_static / "setup.html"))
 
 app.add_middleware(
     CORSMiddleware,
@@ -78,7 +89,14 @@ async def list_users(user: User = Depends(require_role("admin"))):
 
 @app.get("/api/v1/health")
 async def health():
-    return {"status": "ok"}
+    from app.vault import vault_available
+    return {
+        "status": "ok",
+        "vault_encrypted": vault_available(),
+        "llm_configured": bool(settings.DEFAULT_LLM_API_KEY),
+        "default_provider": settings.DEFAULT_LLM_PROVIDER,
+        "setup_complete": bool(settings.DEFAULT_LLM_API_KEY),
+    }
 
 
 @app.get("/api/v1/stats")

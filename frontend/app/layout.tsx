@@ -24,6 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <a href="/api/v1/export/companies.csv" className="ml-auto text-xs text-gray-500 hover:text-emerald-400">
             Export CSV
           </a>
+          <a href="/setup" className="text-xs text-gray-500 hover:text-emerald-400">
+            Setup
+          </a>
         </nav>
         <main className="max-w-6xl mx-auto p-6">{children}</main>
       </body>

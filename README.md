@@ -8,25 +8,34 @@ Open-source B2B lead enrichment engine. Scrape the web, enrich with AI agents, e
 
 OpenAI, Anthropic, Google Gemini, Grok (xAI), Mistral, Groq, DeepSeek — or any OpenAI-compatible endpoint.
 
-## Quick Start
+## One-Step Install
+
+```bash
+git clone https://github.com/Luciferhub44/OpenWebLeads.git && cd OpenWebLeads && python3 setup.py
+```
+
+The interactive wizard walks you through provider selection, key configuration, and launches everything.
+
+**Or use the Web UI wizard** after starting: open `http://localhost:8000/setup`
+
+## Manual Quick Start
 
 ```bash
 # 1. Clone and configure
-git clone <repo-url> && cd OpenWebLeads
+git clone https://github.com/Luciferhub44/OpenWebLeads.git && cd OpenWebLeads
 cp .env.example .env
-# Edit .env — set at minimum: DEFAULT_LLM_API_KEY, ENCRYPTION_MASTER_KEY
+# Edit .env — set at minimum: DEFAULT_LLM_API_KEY
 
-# 2. Generate encryption key
-python -c "import secrets; print(secrets.token_hex(32))"
-# Paste into ENCRYPTION_MASTER_KEY in .env
-
-# 3. Start everything
+# 2. Start everything (encryption key and LLM key are optional at boot)
 docker compose up --build
 
-# 4. Run database migrations
+# 3. Run database migrations
 docker compose exec web alembic upgrade head
 
-# 5. Register first user (gets admin role automatically)
+# 4. Open the setup wizard
+open http://localhost:8000/setup
+
+# 5. Or register manually
 curl -X POST http://localhost:8000/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email": "admin@example.com", "password": "changeme"}'
