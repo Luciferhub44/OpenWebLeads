@@ -24,3 +24,7 @@ test = [
     "pytest-asyncio",
     "httpx",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

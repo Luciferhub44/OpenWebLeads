@@ -26,12 +26,22 @@ jobs:
         image: redis:7-alpine
         ports: ["6379:6379"]
 
+    env:
+      DATABASE_URL: postgresql://openenrich:openenrich@localhost:5432/openenrich_test
+      REDIS_URL: redis://localhost:6379/0
+      ENCRYPTION_MASTER_KEY: ""
+      DEFAULT_LLM_API_KEY: ""
+      DEFAULT_LLM_PROVIDER: openai
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y libpq-dev
 
       - name: Install uv
         run: pip install uv
@@ -43,9 +53,4 @@ jobs:
         run: python -m compileall app/ -q
 
       - name: Run tests
-        env:
-          DATABASE_URL: postgresql://openenrich:openenrich@localhost:5432/openenrich_test
-          REDIS_URL: redis://localhost:6379/0
-          ENCRYPTION_MASTER_KEY: ""
-          DEFAULT_LLM_API_KEY: ""
-        run: pytest tests/ -v
+        run: pytest tests/ -v --tb=short
