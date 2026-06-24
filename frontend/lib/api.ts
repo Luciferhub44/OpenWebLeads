@@ -4,18 +4,28 @@ async function apiFetch(path: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
     headers: { "Content-Type": "application/json", ...opts?.headers },
+    cache: "no-store",
   });
-  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "Unknown error");
+    throw new Error(`${res.status}: ${text}`);
+  }
   return res;
+}
+
+export async function getHealth() {
+  return (await apiFetch("/api/v1/health")).json();
 }
 
 export async function getStats() {
   return (await apiFetch("/api/v1/stats")).json();
 }
 
-export async function getJobs(status?: string) {
-  const q = status ? `?status=${status}` : "";
-  return (await apiFetch(`/api/v1/jobs${q}`)).json();
+export async function getJobs(status?: string, limit = 50) {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  params.set("limit", String(limit));
+  return (await apiFetch(`/api/v1/jobs?${params}`)).json();
 }
 
 export async function getJob(id: string) {
@@ -29,8 +39,8 @@ export async function enrich(domain: string, provider?: string) {
   })).json();
 }
 
-export async function getCompanies() {
-  return (await apiFetch("/api/v1/companies")).json();
+export async function getCompanies(limit = 50) {
+  return (await apiFetch(`/api/v1/companies?limit=${limit}`)).json();
 }
 
 export async function getCompany(id: string) {
@@ -60,6 +70,23 @@ export async function deleteVaultKey(id: string) {
   return (await apiFetch(`/api/v1/vault/keys/${id}`, { method: "DELETE" })).json();
 }
 
-export async function runScoring() {
-  return (await apiFetch("/api/v1/scoring/run", { method: "POST" })).json();
+export async function runScoring(companyId?: string) {
+  const body = companyId ? { company_id: companyId } : {};
+  return (await apiFetch("/api/v1/scoring/run", { method: "POST", body: JSON.stringify(body) })).json();
 }
+
+export async function register(email: string, password: string) {
+  return (await apiFetch("/api/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  })).json();
+}
+
+export async function login(email: string, password: string) {
+  return (await apiFetch("/api/v1/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  })).json();
+}
+
+export const API_BASE = BASE;
