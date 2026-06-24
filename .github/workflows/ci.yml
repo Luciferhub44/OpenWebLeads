@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: openenrich
+          POSTGRES_PASSWORD: openenrich
+          POSTGRES_DB: openenrich_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv pip install --system ".[test]"
+
+      - name: Lint (syntax check)
+        run: python -m py_compile app/main.py app/tasks.py app/llm.py app/vault.py app/enrichment.py
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://openenrich:openenrich@localhost:5432/openenrich_test
+          REDIS_URL: redis://localhost:6379/0
+          ENCRYPTION_MASTER_KEY: ""
+          DEFAULT_LLM_API_KEY: ""
+        run: pytest tests/ -v
