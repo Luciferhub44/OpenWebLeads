@@ -11,7 +11,6 @@ dependencies = [
     "psycopg2-binary",
     "alembic",
     "celery[redis]",
-    "playwright",
     "pydantic[email]",
     "pydantic-settings",
     "httpx",
@@ -19,6 +18,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+worker = ["playwright"]
 test = [
     "pytest",
     "pytest-asyncio",
