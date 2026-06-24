@@ -1,10 +1,10 @@
 import uuid
-
 import pathlib
+import traceback
 
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +25,26 @@ from app.schemas import (
 
 app = FastAPI(title="OpenEnrich OS", version="1.0.0")
 
+# CORS — must be first, before any mounts or routes
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)[:500]},
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
+
+
+# Static files + setup wizard
 _static = pathlib.Path(__file__).parent / "static"
 if _static.is_dir():
     app.mount("/static", StaticFiles(directory=str(_static)), name="static")
@@ -36,57 +56,6 @@ async def setup_wizard():
     if html.exists():
         return FileResponse(str(html))
     return {"error": "Setup wizard not found. Run locally with Docker for full UI."}
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# --- Auth ---
-
-@app.post("/api/v1/auth/register", response_model=UserResponse)
-async def register(req: RegisterRequest):
-    session = SyncSession()
-    try:
-        if session.query(User).filter_by(email=req.email).first():
-            raise HTTPException(409, "Email already registered")
-        # First user gets admin role
-        is_first = session.query(User).count() == 0
-        user = create_user(session, req.email, req.password, role="admin" if is_first else "member")
-        return user
-    finally:
-        session.close()
-
-
-@app.post("/api/v1/auth/login", response_model=LoginResponse)
-async def login(req: LoginRequest):
-    session = SyncSession()
-    try:
-        user = authenticate(session, req.email, req.password)
-        if not user:
-            raise HTTPException(401, "Invalid credentials")
-        token = create_session(session, user.id)
-        return LoginResponse(token=token, user_id=user.id, email=user.email, role=user.role)
-    finally:
-        session.close()
-
-
-@app.get("/api/v1/auth/me", response_model=UserResponse)
-async def me(user: User = Depends(get_current_user)):
-    return user
-
-
-@app.get("/api/v1/auth/users", response_model=list[UserResponse])
-async def list_users(user: User = Depends(require_role("admin"))):
-    session = SyncSession()
-    try:
-        return session.query(User).order_by(User.created_at.desc()).all()
-    finally:
-        session.close()
 
 
 # --- Health ---
@@ -119,10 +88,52 @@ async def stats(db: AsyncSession = Depends(get_db)):
     }
 
 
+# --- Auth ---
+
+@app.post("/api/v1/auth/register", response_model=UserResponse)
+async def register_user(req: RegisterRequest):
+    session = SyncSession()
+    try:
+        if session.query(User).filter_by(email=req.email).first():
+            raise HTTPException(409, "Email already registered")
+        is_first = session.query(User).count() == 0
+        user = create_user(session, req.email, req.password, role="admin" if is_first else "member")
+        return user
+    finally:
+        session.close()
+
+
+@app.post("/api/v1/auth/login", response_model=LoginResponse)
+async def login_user(req: LoginRequest):
+    session = SyncSession()
+    try:
+        user = authenticate(session, req.email, req.password)
+        if not user:
+            raise HTTPException(401, "Invalid credentials")
+        token = create_session(session, user.id)
+        return LoginResponse(token=token, user_id=user.id, email=user.email, role=user.role)
+    finally:
+        session.close()
+
+
+@app.get("/api/v1/auth/me", response_model=UserResponse)
+async def me(user: User = Depends(get_current_user)):
+    return user
+
+
+@app.get("/api/v1/auth/users", response_model=list[UserResponse])
+async def list_users(user: User = Depends(require_role("admin"))):
+    session = SyncSession()
+    try:
+        return session.query(User).order_by(User.created_at.desc()).all()
+    finally:
+        session.close()
+
+
 # --- Enrichment ---
 
 @app.post("/api/v1/enrich", response_model=EnrichResponse)
-async def enrich(req: EnrichRequest, db: AsyncSession = Depends(get_db)):
+async def enrich_domain(req: EnrichRequest, db: AsyncSession = Depends(get_db)):
     domain = req.domain.strip().lower().removeprefix("http://").removeprefix("https://").split("/")[0]
     provider = req.provider or settings.DEFAULT_LLM_PROVIDER
 
