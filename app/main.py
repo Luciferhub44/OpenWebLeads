@@ -26,12 +26,16 @@ from app.schemas import (
 app = FastAPI(title="OpenEnrich OS", version="1.0.0")
 
 _static = pathlib.Path(__file__).parent / "static"
-app.mount("/static", StaticFiles(directory=str(_static)), name="static")
+if _static.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_static)), name="static")
 
 
 @app.get("/setup")
 async def setup_wizard():
-    return FileResponse(str(_static / "setup.html"))
+    html = _static / "setup.html"
+    if html.exists():
+        return FileResponse(str(html))
+    return {"error": "Setup wizard not found. Run locally with Docker for full UI."}
 
 app.add_middleware(
     CORSMiddleware,
