@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+asyncpg
+psycopg2-binary
+alembic
+celery[redis]
+pydantic[email]
+pydantic-settings
+httpx
+cryptography
