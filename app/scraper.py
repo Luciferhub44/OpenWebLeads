@@ -1,19 +1,23 @@
 import random
+from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright
 
 from app.config import settings
+from app.ratelimit import wait_for_domain
 
 
 def _get_proxy() -> dict | None:
     urls = [u.strip() for u in settings.PROXY_URLS.split(",") if u.strip()]
     if not urls:
         return None
-    url = random.choice(urls)
-    return {"server": url}
+    return {"server": random.choice(urls)}
 
 
 def scrape_url(url: str, timeout_ms: int = 30000) -> str:
+    domain = urlparse(url).netloc or url
+    wait_for_domain(domain)
+
     proxy = _get_proxy()
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, proxy=proxy)

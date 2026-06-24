@@ -40,7 +40,7 @@ jobs:
         run: uv pip install --system ".[test]"
 
       - name: Lint (syntax check)
-        run: python -m py_compile app/main.py app/tasks.py app/llm.py app/vault.py app/enrichment.py
+        run: python -m compileall app/ -q
 
       - name: Run tests
         env:

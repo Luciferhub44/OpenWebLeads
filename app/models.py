@@ -12,6 +12,32 @@ def _utcnow():
     return datetime.now(timezone.utc)
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(unique=True, index=True)
+    password_hash: Mapped[str]
+    salt: Mapped[str]
+    role: Mapped[str] = mapped_column(default="member")  # admin, member, viewer
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(default=_utcnow, server_default=func.now())
+
+    sessions: Mapped[list["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    token: Mapped[str] = mapped_column(unique=True, index=True)
+    expires_at: Mapped[datetime]
+    created_at: Mapped[datetime] = mapped_column(default=_utcnow, server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="sessions")
+
+
 class Company(Base):
     __tablename__ = "companies"
 
@@ -25,8 +51,6 @@ class Company(Base):
     summary: Mapped[str | None] = mapped_column(Text, default=None)
     raw_html: Mapped[str | None] = mapped_column(Text, default=None)
     email_patterns: Mapped[list] = mapped_column(ARRAY(Text), server_default="{}")
-    # pgvector embedding for dedup (1536 dims = text-embedding-3-small)
-    # Column managed via raw SQL since SQLAlchemy needs pgvector extension
     created_at: Mapped[datetime] = mapped_column(default=_utcnow, server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(onupdate=_utcnow, default=None)
 

@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.env
+*.egg-info/
+dist/
+build/
+.venv/
+node_modules/
+.next/
+frontend/.next/
+frontend/node_modules/
+pgdata/
+.claude/

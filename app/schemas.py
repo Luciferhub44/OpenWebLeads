@@ -4,6 +4,34 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
+# --- Auth ---
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    token: str
+    user_id: uuid.UUID
+    email: str
+    role: str
+
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    email: str
+    role: str
+    is_active: bool
+    created_at: datetime
+
+
 # --- Enrichment ---
 
 class EnrichRequest(BaseModel):
@@ -104,3 +132,36 @@ class DedupResponse(BaseModel):
 
 class ScoreResponse(BaseModel):
     updated: int
+
+
+# --- CRM ---
+
+class SalesforcePushRequest(BaseModel):
+    company_id: uuid.UUID
+    instance_url: str
+    access_token: str
+
+
+class HubSpotPushRequest(BaseModel):
+    company_id: uuid.UUID
+    api_key: str
+
+
+class PipedrivePushRequest(BaseModel):
+    company_id: uuid.UUID
+    api_token: str
+
+
+# --- Egress ---
+
+class GoogleSheetsPushRequest(BaseModel):
+    company_id: uuid.UUID
+    spreadsheet_id: str
+    access_token: str
+    sheet_name: str = "Sheet1"
+
+
+class NotionPushRequest(BaseModel):
+    company_id: uuid.UUID
+    database_id: str
+    api_key: str

@@ -9,14 +9,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db import get_db, SyncSession
 from app.llm import PROVIDERS
-from app.models import Company, Job, Lead, ApiKey
+from app.models import Company, Job, Lead, User
+from app.auth import get_current_user, require_role, create_user, authenticate, create_session
 from app.schemas import (
+    RegisterRequest, LoginRequest, LoginResponse, UserResponse,
     EnrichRequest, EnrichResponse, JobResponse, CompanyResponse, LeadResponse,
     ApiKeyCreate, ApiKeyResponse, ProvidersResponse,
     WebhookConfigRequest, DedupResponse, ScoreResponse,
+    SalesforcePushRequest, HubSpotPushRequest, PipedrivePushRequest,
+    GoogleSheetsPushRequest, NotionPushRequest,
 )
 
-app = FastAPI(title="OpenEnrich OS", version="0.3.0")
+app = FastAPI(title="OpenEnrich OS", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,6 +29,49 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --- Auth ---
+
+@app.post("/api/v1/auth/register", response_model=UserResponse)
+async def register(req: RegisterRequest):
+    session = SyncSession()
+    try:
+        if session.query(User).filter_by(email=req.email).first():
+            raise HTTPException(409, "Email already registered")
+        # First user gets admin role
+        is_first = session.query(User).count() == 0
+        user = create_user(session, req.email, req.password, role="admin" if is_first else "member")
+        return user
+    finally:
+        session.close()
+
+
+@app.post("/api/v1/auth/login", response_model=LoginResponse)
+async def login(req: LoginRequest):
+    session = SyncSession()
+    try:
+        user = authenticate(session, req.email, req.password)
+        if not user:
+            raise HTTPException(401, "Invalid credentials")
+        token = create_session(session, user.id)
+        return LoginResponse(token=token, user_id=user.id, email=user.email, role=user.role)
+    finally:
+        session.close()
+
+
+@app.get("/api/v1/auth/me", response_model=UserResponse)
+async def me(user: User = Depends(get_current_user)):
+    return user
+
+
+@app.get("/api/v1/auth/users", response_model=list[UserResponse])
+async def list_users(user: User = Depends(require_role("admin"))):
+    session = SyncSession()
+    try:
+        return session.query(User).order_by(User.created_at.desc()).all()
+    finally:
+        session.close()
 
 
 # --- Health ---
@@ -152,8 +199,7 @@ async def run_scoring(company_id: uuid.UUID | None = None):
     from app.scoring import score_all_leads
     session = SyncSession()
     try:
-        updated = score_all_leads(session, company_id)
-        return ScoreResponse(updated=updated)
+        return ScoreResponse(updated=score_all_leads(session, company_id))
     finally:
         session.close()
 
@@ -168,8 +214,61 @@ async def find_company_duplicates(company_id: uuid.UUID, threshold: float = Quer
         company = session.get(Company, company_id)
         if not company:
             raise HTTPException(404, "Company not found")
-        dupes = find_duplicates(session, company, threshold)
-        return DedupResponse(duplicates=dupes)
+        return DedupResponse(duplicates=find_duplicates(session, company, threshold))
+    finally:
+        session.close()
+
+
+# --- CRM Push ---
+
+@app.post("/api/v1/crm/salesforce")
+async def crm_salesforce(req: SalesforcePushRequest):
+    from app.crm import push_to_salesforce
+    session = SyncSession()
+    try:
+        return push_to_salesforce(session, req.company_id, req.instance_url, req.access_token)
+    finally:
+        session.close()
+
+
+@app.post("/api/v1/crm/hubspot")
+async def crm_hubspot(req: HubSpotPushRequest):
+    from app.crm import push_to_hubspot
+    session = SyncSession()
+    try:
+        return push_to_hubspot(session, req.company_id, req.api_key)
+    finally:
+        session.close()
+
+
+@app.post("/api/v1/crm/pipedrive")
+async def crm_pipedrive(req: PipedrivePushRequest):
+    from app.crm import push_to_pipedrive
+    session = SyncSession()
+    try:
+        return push_to_pipedrive(session, req.company_id, req.api_token)
+    finally:
+        session.close()
+
+
+# --- Egress ---
+
+@app.post("/api/v1/egress/google-sheets")
+async def egress_gsheets(req: GoogleSheetsPushRequest):
+    from app.egress import push_to_google_sheets
+    session = SyncSession()
+    try:
+        return push_to_google_sheets(session, req.company_id, req.spreadsheet_id, req.access_token, req.sheet_name)
+    finally:
+        session.close()
+
+
+@app.post("/api/v1/egress/notion")
+async def egress_notion(req: NotionPushRequest):
+    from app.egress import push_to_notion
+    session = SyncSession()
+    try:
+        return push_to_notion(session, req.company_id, req.database_id, req.api_key)
     finally:
         session.close()
 
@@ -215,7 +314,7 @@ async def delete_api_key(key_id: uuid.UUID):
         session.close()
 
 
-# --- Webhook config ---
+# --- Webhook ---
 
 @app.get("/api/v1/webhook")
 async def get_webhook():
